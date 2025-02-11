@@ -1,0 +1,6 @@
+/__pycache__/
+.static
+uploads/find_the_page.pcap
+/venv/
+exaple.py
+yara_check.py

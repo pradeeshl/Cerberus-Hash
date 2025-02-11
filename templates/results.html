@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YARA Scan Results</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body class="bg-dark text-white">
+
+    <div class="container mt-5">
+        <h2 class="text-center text-warning">🔍 YARA Scan Results</h2>
+        
+        <!-- 📊 Summary Section -->
+        <div class="alert alert-info mt-4">
+            <strong>Total Packets in PCAP:</strong> <span id="total-packets">{{ total_packets }}</span> <br>
+            <strong>Malicious Packets Detected:</strong> <span id="total-malicious"></span> <br>
+            <strong>Unique Threat Rules:</strong> <span id="unique-rules"></span>
+        </div>
+
+        <!-- 📑 Table for displaying results -->
+        <table class="table table-striped table-dark mt-3">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>MD5 Hash</th>
+                    <th>Detected Rule</th>
+                    <th>Description</th>
+                    <th>Author</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody id="results-table">
+                <!-- Data will be inserted here dynamically -->
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        // 📌 JavaScript to process and display results dynamically
+        const results = {{ matches | tojson }}; 
+
+        let totalMalicious = 0;
+        let ruleSet = new Set();
+        let tableBody = document.getElementById("results-table");
+
+        // Get current date dynamically
+        let currentDate = new Date().toISOString().split('T')[0];
+
+        results.forEach((entry, index) => {
+            if (entry.result.length > 0) {
+                totalMalicious++;
+                entry.result.forEach(match => {
+                    ruleSet.add(match.rule);
+                    let row = `
+                        <tr>
+                            <td>${index + 1}</td>
+                            <td class="text-warning">${entry.hash}</td>
+                            <td class="text-danger">${match.rule}</td>
+                            <td>${match.meta.description}</td>
+                            <td>${match.meta.author}</td>
+                            <td>${currentDate}</td> <!-- 🔹 Dynamic Date -->
+                        </tr>`;
+                    tableBody.innerHTML += row;
+                });
+            }
+        });
+
+        // Update statistics
+        document.getElementById("total-malicious").innerText = totalMalicious;
+        document.getElementById("unique-rules").innerText = ruleSet.size;
+    </script>
+
+</body>
+</html>

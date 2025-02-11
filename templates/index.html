@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PCAP Malware Scanner</title>
+    <style>
+        /* Google Font */
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap');
+
+        /* Global Styles */
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: #121212;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        h1 {
+            font-size: 26px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        /* Upload Container */
+        .upload-box {
+            background: #1e1e1e;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0px 4px 10px rgba(255, 255, 255, 0.1);
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        label {
+            font-size: 16px;
+            font-weight: 500;
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        /* File Input Button */
+        .file-input {
+            position: relative;
+            display: inline-block;
+            background: linear-gradient(135deg, #ff7eb3, #ff758c);
+            color: white;
+            padding: 12px 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: 0.3s ease;
+        }
+
+        .file-input:hover {
+            background: linear-gradient(135deg, #ff758c, #ff5a7b);
+        }
+
+        input[type="file"] {
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        /* Upload Button */
+        button {
+            background: #04b575;
+            color: white;
+            border: none;
+            padding: 12px 18px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: 0.3s ease;
+            width: 100%;
+        }
+
+        button:hover {
+            background: #038a5c;
+        }
+
+        /* File Name Display */
+        #file-name {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #ffcc00;
+        }
+
+        /* Progress Bar */
+        .progress-container {
+            display: none;
+            margin-top: 15px;
+        }
+
+        .progress-bar {
+            width: 0%;
+            height: 25px;
+            background: #ffcc00;
+            text-align: center;
+            line-height: 25px;
+            color: black;
+            font-weight: bold;
+            border-radius: 8px;
+            transition: width 0.3s ease-in-out;
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .upload-box {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Upload a PCAP File for Malware Analysis</h1>
+
+    <div class="upload-box">
+        <form id="upload-form" action="/" method="post" enctype="multipart/form-data">
+            <label for="file">Choose a PCAP file</label>
+            
+            <div class="file-input">
+                <span>Select File</span>
+                <input type="file" name="file" id="file" accept=".pcap,.pcapng" onchange="updateFileName()">
+            </div>
+
+            <p id="file-name">No file selected</p>
+            
+            <button type="submit">Upload</button>
+
+            <!-- Progress Bar -->
+            <div class="progress-container" id="progress-container">
+                <div class="progress-bar" id="progress-bar">0%</div>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        function updateFileName() {
+            var fileInput = document.getElementById('file');
+            var fileNameDisplay = document.getElementById('file-name');
+
+            if (fileInput.files.length > 0) {
+                fileNameDisplay.textContent = "Selected File: " + fileInput.files[0].name;
+            } else {
+                fileNameDisplay.textContent = "No file selected";
+            }
+        }
+
+        document.getElementById("upload-form").addEventListener("submit", function(event) {
+            event.preventDefault();  // Prevent default form submission
+
+            let formData = new FormData(this);
+            let progressContainer = document.getElementById("progress-container");
+            let progressBar = document.getElementById("progress-bar");
+
+            // Show progress bar
+            progressContainer.style.display = "block";
+            progressBar.style.width = "10%";
+            progressBar.innerText = "Scanning...";
+
+            // Simulate a progress effect
+            let progress = 10;
+            let interval = setInterval(() => {
+                if (progress < 90) {
+                    progress += 10;
+                    progressBar.style.width = progress + "%";
+                    progressBar.innerText = progress + "%";
+                }
+            }, 500);
+
+            // Send AJAX request to process the file
+            fetch("/", {
+                method: "POST",
+                body: formData
+            })
+            .then(response => response.text())
+            .then(data => {
+                clearInterval(interval);
+                progressBar.style.width = "100%";
+                progressBar.innerText = "Completed!";
+                
+                // Replace the current page with the new results page
+                setTimeout(() => {
+                    document.open();
+                    document.write(data);
+                    document.close();
+                }, 500);
+            });
+        });
+    </script>
+
+</body>
+</html>
