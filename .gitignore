@@ -1,3 +1,4 @@
+.gitignore
 /__pycache__/
 .static
 uploads/find_the_page.pcap
