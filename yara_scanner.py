@@ -2,7 +2,6 @@ import yara
 import os
 
 def load_yara_rules():
-    """Loads YARA rules from the file, ensuring it exists."""
     rule_file = './yara_rules/malware_rules.yar'
 
     if not os.path.exists(rule_file):
@@ -15,7 +14,6 @@ def load_yara_rules():
         raise RuntimeError(f"YARA syntax error: {e}")
 
 def scan_with_yara(packet_hashes):
-    """Scans MD5 hashes using YARA rules and returns JSON-serializable matches."""
     if not packet_hashes:
         print("No packet hashes provided for scanning.")
         return []

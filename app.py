@@ -17,7 +17,7 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def count_packets_in_pcap(filepath):
-    """Returns total number of packets in the PCAP file"""
+
     packets = scapy.rdpcap(filepath)
     return len(packets)
 
