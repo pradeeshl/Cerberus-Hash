@@ -13,27 +13,32 @@ A web-based PCAP analyzer that detects malicious network traffic using YARA rule
 
 ```
 Cerberus-Hash/
-├── app.py                 # Flask web application
-├── pcap_parser.py        # PCAP processing & hash extraction
-├── yara_scanner.py       # YARA malware detection
-├── requirements.txt      # Dependencies
-├── templates/            # HTML templates
+├── backend/              # FastAPI backend app
+├── frontend/             # React JS frontend app (Vite)
+├── requirements.txt      # Python dependencies
 ├── uploads/              # Uploaded PCAP files
 └── yara_rules/          # Malware detection rules
 ```
 
 ## 🚀 Quick Start
 
+### 1. Run the FastAPI Backend
 ```bash
-git clone https://github.com/pradeeshl/Cerberus-Hash.git
-cd Cerberus-Hash
+cd backend
 pip install -r requirements.txt
-python app.py
+uvicorn app.main:app --reload
 ```
+The API will be available at: `http://localhost:8000`
 
-Access at: `http://localhost:5000`
+### 2. Run the React JS Frontend
+```bash
+cd frontend
+npm install
+npm run dev
+```
+Access the application at: `http://localhost:5173`
 
-**Dependencies:** Flask, Scapy, YARA-Python
+**Dependencies:** FastAPI, React (Vite), TailwindCSS, Scapy, YARA-Python
 
 ## 🎮 Usage
 

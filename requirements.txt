@@ -1,4 +1,1 @@
-flask
-scapy
-yara-python
-hashlib
+-r backend/requirements.txt
