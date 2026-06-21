@@ -20,6 +20,26 @@ Cerberus-Hash/
 └── yara_rules/          # Malware detection rules
 ```
 
+## 🏗️ Architecture Overview
+
+The system processes and inspects traffic in an isolated pipelines structure:
+
+```mermaid
+graph TD
+    Client[React Frontend] -->|REST API / JSON| API[FastAPI Layer]
+    API -->|Authenticate / JWT| Auth[Auth Engine]
+    API -->|Upload PCAP| Upload[Upload Service]
+    Upload -->|Scapy| Parser[PCAP Parser]
+    Parser -->|YARA match| Yara[YARA Signature Engine]
+    Yara -->|DB Session| SQLite[(SQLite Database)]
+```
+
+### Key Components
+- **API Layer (FastAPI):** Controls routing, workspace environments, session context, and detail reports.
+- **Parser (Scapy):** Decodes network captures and computes payload MD5 checks.
+- **Scanner (YARA):** Matches payload signatures dynamically against YARA rules.
+- **Isolation Boundary (Workspaces):** Keeps individual investigations fully separated.
+
 ## 🚀 Quick Start
 
 ### 1. Run the FastAPI Backend
