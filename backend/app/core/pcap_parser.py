@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from hashlib import md5
 from pathlib import Path
 
-from scapy.all import DNS, IP, IPv6, Raw, TCP, UDP, rdpcap
+from scapy.all import DNS, IP, IPv6, Raw, TCP, UDP, PcapReader
 
 
 def _packet_timestamp(packet) -> str:
@@ -73,33 +73,33 @@ def _packet_info(packet, protocol: str) -> str:
 
 
 def parse_pcap(file_path: str | Path) -> dict:
-    packets = rdpcap(str(file_path))
     packet_records: list[dict] = []
     payload_hashes: list[str] = []
 
-    for packet_index, packet in enumerate(packets, start=1):
-        raw_payload = bytes(packet[Raw].load) if packet.haslayer(Raw) else b''
-        payload_hash = md5(raw_payload).hexdigest() if raw_payload else None
-        protocol = _packet_protocol(packet)
-        source_ip, destination_ip = _packet_endpoints(packet)
+    with PcapReader(str(file_path)) as reader:
+        for packet_index, packet in enumerate(reader, start=1):
+            raw_payload = bytes(packet[Raw].load) if packet.haslayer(Raw) else b''
+            payload_hash = md5(raw_payload).hexdigest() if raw_payload else None
+            protocol = _packet_protocol(packet)
+            source_ip, destination_ip = _packet_endpoints(packet)
 
-        if payload_hash:
-            payload_hashes.append(payload_hash)
+            if payload_hash:
+                payload_hashes.append(payload_hash)
 
-        packet_records.append(
-            {
-                'packet_index': packet_index,
-                'timestamp': _packet_timestamp(packet),
-                'source_ip': source_ip,
-                'dest_ip': destination_ip,
-                'protocol': protocol,
-                'length': int(len(packet)),
-                'info': _packet_info(packet, protocol),
-                'raw_payload': raw_payload.hex() if raw_payload else None,
-                'payload_hash': payload_hash,
-                'is_threat': False,
-            }
-        )
+            packet_records.append(
+                {
+                    'packet_index': packet_index,
+                    'timestamp': _packet_timestamp(packet),
+                    'source_ip': source_ip,
+                    'dest_ip': destination_ip,
+                    'protocol': protocol,
+                    'length': int(len(packet)),
+                    'info': _packet_info(packet, protocol),
+                    'raw_payload': raw_payload.hex() if raw_payload else None,
+                    'payload_hash': payload_hash,
+                    'is_threat': False,
+                }
+            )
 
     return {
         'packets': packet_records,
