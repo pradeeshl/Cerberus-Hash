@@ -1,0 +1,17 @@
+.env
+/backend/app/uploads
+uploads
+
+# Python Virtual Environments
+.venv/
+venv/
+env/
+
+# Python caching
+**/__pycache__/
+*.pyc
+
+# Local SQLite databases (including WAL files)
+backend/*.db
+backend/*.db-shm
+backend/*.db-wal
