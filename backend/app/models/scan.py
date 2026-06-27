@@ -18,9 +18,30 @@ class User(Base):
     email = Column(String(255), unique=True, index=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
     role = Column(String(50), nullable=False, default='analyst')
+    default_workspace_id = Column(Integer, nullable=True)
+    avatar = Column(String(100), nullable=True, default='avatar_default')
+    preferences = Column(Text, nullable=True, default='{}')
     created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
 
     scans = relationship('Scan', back_populates='owner', cascade='all, delete-orphan')
+    workspaces = relationship('Workspace', back_populates='owner', cascade='all, delete-orphan')
+
+
+class Workspace(Base):
+    __tablename__ = 'workspaces'
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    name = Column(String(100), nullable=False)
+    description = Column(Text, nullable=True)
+    color_theme = Column(String(50), nullable=False, default='violet')
+    icon = Column(String(50), nullable=False, default='Folder')
+    labels = Column(Text, nullable=False, default='[]')
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
+    last_accessed_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
+
+    owner = relationship('User', back_populates='workspaces')
+    scans = relationship('Scan', back_populates='workspace', cascade='all, delete-orphan')
 
 
 class Scan(Base):
@@ -28,6 +49,7 @@ class Scan(Base):
 
     id = Column(String(36), primary_key=True, index=True, default=lambda: str(uuid4()))
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False, index=True)
+    workspace_id = Column(Integer, ForeignKey('workspaces.id', ondelete='CASCADE'), nullable=True, index=True)
     filename = Column(String(255), nullable=False)
     file_size = Column(String(50), nullable=False)
     total_packets = Column(Integer, nullable=False, default=0)
@@ -38,6 +60,7 @@ class Scan(Base):
     created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
 
     owner = relationship('User', back_populates='scans')
+    workspace = relationship('Workspace', back_populates='scans')
     packets = relationship('Packet', back_populates='scan', cascade='all, delete-orphan', order_by='Packet.packet_index')
     detections = relationship('Detection', back_populates='scan', cascade='all, delete-orphan', order_by='Detection.packet_index')
 

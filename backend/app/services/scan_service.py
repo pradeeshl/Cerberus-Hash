@@ -39,10 +39,49 @@ def save_upload_file(upload_file: UploadFile) -> Path:
     return destination
 
 
-def persist_scan(db: Session, user_id: int, upload_file: UploadFile, file_path: Path) -> Scan:
+def persist_scan(db: Session, user_id: int, upload_file: UploadFile, file_path: Path, workspace_id: int) -> Scan:
+    import json
+    from ..core.malwarebazaar import query_malware_bazaar
+
     pcap_data = parse_pcap(file_path)
     packet_records = pcap_data['packets']
     detections = scan_with_yara(packet_records)
+
+    # Perform real-time MalwareBazaar threat intelligence queries
+    unique_hashes = {}
+    for packet in packet_records:
+        ph = packet.get('payload_hash')
+        if ph:
+            unique_hashes[ph] = packet['packet_index']
+
+    # Query up to 15 unique hashes to avoid scan latency
+    hashes_to_query = list(unique_hashes.keys())[:15]
+    malware_bazaar_detections = []
+    
+    for h in hashes_to_query:
+        mb_info = query_malware_bazaar(h)
+        if mb_info:
+            signature = mb_info.get('signature') or 'Unknown'
+            file_name = mb_info.get('file_name') or 'N/A'
+            file_type = mb_info.get('file_type') or 'unknown'
+            reporter = mb_info.get('reporter') or 'abuse.ch'
+            tags = mb_info.get('tags') or []
+
+            malware_bazaar_detections.append({
+                'packet_index': unique_hashes[h],
+                'md5_hash': h,
+                'rule_name': f"MalwareBazaar: {signature}",
+                'description': f"Malicious sample identified: {file_name} ({file_type})",
+                'author': f"MalwareBazaar / {reporter}",
+                'tags': json.dumps(tags),
+                'severity': 'high',
+                'vt_positives': 0,
+                'vt_total': 72,
+                'raw_payload': next((p['raw_payload'] for p in packet_records if p['payload_hash'] == h), None)
+            })
+
+    # Merge YARA and MalwareBazaar detections
+    detections.extend(malware_bazaar_detections)
     threat_indexes = {detection['packet_index'] for detection in detections}
 
     started_at = datetime.now(timezone.utc)
@@ -50,6 +89,7 @@ def persist_scan(db: Session, user_id: int, upload_file: UploadFile, file_path: 
 
     scan = Scan(
         user_id=user_id,
+        workspace_id=workspace_id,
         filename=Path(upload_file.filename or file_path.name).name,
         file_size=_format_bytes(file_path.stat().st_size),
         total_packets=len(packet_records),
@@ -104,6 +144,7 @@ def scan_to_dict(scan: Scan) -> dict:
     return {
         'id': scan.id,
         'user_id': scan.user_id,
+        'workspace_id': scan.workspace_id,
         'filename': scan.filename,
         'file_size': scan.file_size,
         'total_packets': scan.total_packets,
