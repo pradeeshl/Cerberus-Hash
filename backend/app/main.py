@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .api.auth import router as auth_router
 from .api.scans import router as scans_router
+from .api.workspaces import router as workspaces_router
+from .api.users import router as users_router
 from .core.database import init_db
 
 
@@ -36,3 +38,5 @@ def read_root():
 
 app.include_router(auth_router)
 app.include_router(scans_router)
+app.include_router(workspaces_router)
+app.include_router(users_router)
