@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { AlertTriangle, FileText, ShieldAlert, BadgeCheck, Activity } from 'lucide-react';
+import { scansAPI } from '../../api';
 
 function hexToBytes(hexValue) {
   const normalized = (hexValue || '').replace(/[^0-9a-fA-F]/g, '');
@@ -43,10 +44,48 @@ function getPacketByIndex(packets, packetIndex) {
   return packets.find((packet) => packet.index === packetIndex) ?? packets[0] ?? null;
 }
 
-export default function ScanReport({ scan, fallbackPackets = [], fallbackDetections = [] }) {
-  const packets = scan?.packets?.length ? scan.packets : fallbackPackets;
-  const detections = scan?.detections?.length ? scan.detections : fallbackDetections;
-  const [selectedPacketIndex, setSelectedPacketIndex] = useState(packets[0]?.index ?? null);
+export default function ScanReport({ scan: initialScan }) {
+  const [scan, setScan] = useState(initialScan);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const fetchFullDetails = async () => {
+      if (!initialScan?.id) return;
+      if (initialScan.packets?.length && initialScan.detections?.length) {
+        setScan(initialScan);
+        return;
+      }
+      setLoading(true);
+      try {
+        const fullScan = await scansAPI.getScanDetails(initialScan.id);
+        if (active) {
+          setScan(fullScan);
+        }
+      } catch (err) {
+        console.error("Failed to fetch scan details:", err);
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+    fetchFullDetails();
+    return () => {
+      active = false;
+    };
+  }, [initialScan]);
+
+  const packets = scan?.packets || [];
+  const detections = scan?.detections || [];
+  const [selectedPacketIndex, setSelectedPacketIndex] = useState(null);
+
+  // Sync selected packet index on packets load
+  useEffect(() => {
+    if (packets.length > 0 && selectedPacketIndex === null) {
+      setSelectedPacketIndex(packets[0].index);
+    }
+  }, [packets, selectedPacketIndex]);
 
   const selectedPacket = useMemo(
     () => getPacketByIndex(packets, selectedPacketIndex),
@@ -63,10 +102,19 @@ export default function ScanReport({ scan, fallbackPackets = [], fallbackDetecti
     [selectedPacket, selectedDetection],
   );
 
-  if (!scan) {
+  if (!initialScan) {
     return (
       <div className="glass-panel flex min-h-[28rem] items-center justify-center rounded-[2rem] p-8 text-slate-400">
         No scan is selected.
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="glass-panel flex min-h-[28rem] flex-col items-center justify-center rounded-[2rem] p-8 text-slate-400">
+        <Activity className="h-8 w-8 animate-spin text-emerald-400 mb-4" />
+        Loading packet timeline and signature matches...
       </div>
     );
   }

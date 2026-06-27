@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowUpRight, FileUp, UploadCloud, Activity, ShieldAlert, CheckCircle2, Loader2 } from 'lucide-react';
+import { scansAPI } from '../../api';
 
 function formatByteSize(bytes) {
   if (!Number.isFinite(bytes) || bytes <= 0) {
@@ -18,132 +19,6 @@ function formatByteSize(bytes) {
   return `${size.toFixed(size >= 10 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
 }
 
-function createThreatProfile(fileName) {
-  const loweredName = fileName.toLowerCase();
-
-  if (loweredName.includes('tor')) {
-    return {
-      packetIndex: 294,
-      protocol: 'TLS',
-      destIp: '185.165.191.122',
-      info: 'Client Hello with Tor bridge negotiation markers',
-      ruleName: 'Detect_Tor_Directory_Authority_Request',
-      description: 'Detects attempts to bootstrap anonymous routing sessions by contacting directory infrastructure.',
-      tags: ['tor', 'anon', 'recon'],
-      vtPositives: 4,
-      vtTotal: 71,
-      rawPayload: '16030100800100007c030357732a5a2680fbeb60e6530ffd79c4966601b1fd4f826521377737a37e8643be4fe49a74bc2668c1f68e756b14258aaed0820a97f193d6d158508f53ec000016002f00350005000a00c00900c01300c01400c00a',
-    };
-  }
-
-  if (loweredName.includes('smb') || loweredName.includes('blue')) {
-    return {
-      packetIndex: 911,
-      protocol: 'SMB',
-      destIp: '10.0.0.25',
-      info: 'SMBv1 negotiate request carrying exploit shellcode markers',
-      ruleName: 'Detect_EternalBlue_SMB_Payload',
-      description: 'Detects the characteristic SMB shellcode buffer pattern associated with EternalBlue exploitation.',
-      tags: ['exploit', 'smb', 'eternalblue', 'ms17-010'],
-      vtPositives: 64,
-      vtTotal: 73,
-      rawPayload: '00000085ff534d4272000000001807c8000000000000000000000000000005ff00000000000100ff02001400080001000000000001000000ffff00005400000044b1b326fa901873281772d00ac729285041594c4f4144',
-    };
-  }
-
-  return {
-    packetIndex: 148,
-    protocol: 'HTTP',
-    destIp: '84.200.69.80',
-    info: 'HTTP beacon with ransom payload fingerprint',
-    ruleName: 'Detect_WannaCry_Ransomware_Beacon',
-    description: 'Detects the outbound command-and-control handshake hash associated with WannaCry ransomware.',
-    tags: ['ransomware', 'wannacry', 'c2'],
-    vtPositives: 58,
-    vtTotal: 72,
-    rawPayload: '474554202f6d756d626c656675636b736765677564676f7267686568666e6578742e6f726720485454502f312e310d0a486f73743a207777772e697571657266736f6470706d7067686a6c61777766736f756665727766636f6d2e636f6d0d0a0d0a',
-  };
-}
-
-function buildUploadedScan(file) {
-  const scanId = `scan-${Date.now()}`;
-  const profile = createThreatProfile(file.name);
-  const now = new Date();
-  const later = new Date(now.getTime() + 11000);
-
-  const packets = [
-    {
-      index: 1,
-      timestamp: '11:02:14.006',
-      sourceIp: '192.168.1.105',
-      destIp: '192.168.1.1',
-      protocol: 'DNS',
-      length: 74,
-      info: 'Standard query 0x31f4 A update.service.local',
-      isThreat: false,
-    },
-    {
-      index: 2,
-      timestamp: '11:02:14.221',
-      sourceIp: '192.168.1.105',
-      destIp: profile.destIp,
-      protocol: profile.protocol,
-      length: 188,
-      info: profile.info,
-      isThreat: true,
-      rawPayload: profile.rawPayload,
-    },
-    {
-      index: 3,
-      timestamp: '11:02:14.594',
-      sourceIp: '192.168.1.105',
-      destIp: '172.16.20.10',
-      protocol: 'TLS',
-      length: 312,
-      info: 'Client Hello with uncommon ciphersuite ordering',
-      isThreat: false,
-    },
-    {
-      index: 4,
-      timestamp: '11:02:15.044',
-      sourceIp: '192.168.1.105',
-      destIp: '10.0.0.25',
-      protocol: 'SMB',
-      length: 152,
-      info: 'Negotiate Protocol Request',
-      isThreat: profile.protocol === 'SMB',
-      rawPayload: profile.protocol === 'SMB' ? profile.rawPayload : undefined,
-    },
-  ];
-
-  return {
-    id: scanId,
-    filename: file.name,
-    fileSize: formatByteSize(file.size),
-    totalPackets: packets.length,
-    status: 'completed',
-    startedAt: now.toISOString().slice(0, 19).replace('T', ' '),
-    completedAt: later.toISOString().slice(0, 19).replace('T', ' '),
-    threatCount: packets.filter((packet) => packet.isThreat).length,
-    packets,
-    detections: [
-      {
-        id: `${scanId}-det-1`,
-        packetIndex: profile.packetIndex,
-        md5Hash: 'generated-upload-scan-hash',
-        ruleName: profile.ruleName,
-        description: profile.description,
-        author: 'PRADEESH L',
-        tags: profile.tags,
-        severity: profile.vtPositives > 30 ? 'high' : 'medium',
-        vtPositives: profile.vtPositives,
-        vtTotal: profile.vtTotal,
-        rawPayload: profile.rawPayload,
-      },
-    ],
-  };
-}
-
 function formatProgressLabel(stageIndex) {
   if (stageIndex === 0) {
     return 'Uploading file...';
@@ -160,42 +35,19 @@ function formatProgressLabel(stageIndex) {
   return 'Enriching findings via VirusTotal...';
 }
 
-export default function UploadWorkspace({ onUploadComplete }) {
+export default function UploadWorkspace({ activeWorkspaceId, onUploadComplete }) {
   const inputRef = useRef(null);
-  const intervalRef = useRef(null);
-  const timeoutRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
   const [currentFile, setCurrentFile] = useState(null);
   const [progress, setProgress] = useState(0);
   const [stageIndex, setStageIndex] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
   const [completedScan, setCompletedScan] = useState(null);
+  const [error, setError] = useState(null);
 
   const stageLabel = useMemo(() => formatProgressLabel(stageIndex), [stageIndex]);
 
-  useEffect(() => () => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-  }, []);
-
-  const clearTimers = () => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-  };
-
-  const handleFiles = (fileList) => {
+  const handleFiles = async (fileList) => {
     const file = fileList?.[0];
 
     if (!file || isRunning) {
@@ -205,42 +57,53 @@ export default function UploadWorkspace({ onUploadComplete }) {
     const isSupported = file.name.toLowerCase().endsWith('.pcap') || file.name.toLowerCase().endsWith('.pcapng');
 
     if (!isSupported) {
+      setError('Unsupported file type. Please select a .pcap or .pcapng file.');
       return;
     }
 
-    clearTimers();
     setCurrentFile(file);
     setCompletedScan(null);
     setProgress(0);
     setStageIndex(0);
     setIsRunning(true);
+    setError(null);
 
-    const targets = [30, 60, 90, 100];
-    let stageCursor = 0;
-
-    intervalRef.current = window.setInterval(() => {
-      setProgress((currentProgress) => {
-        const target = targets[stageCursor];
-        const nextProgress = Math.min(currentProgress + 2, target);
-
-        if (nextProgress >= target && stageCursor < targets.length - 1) {
-          stageCursor += 1;
-          setStageIndex(stageCursor);
-        }
-
-        if (nextProgress >= 100) {
-          clearTimers();
-          setIsRunning(false);
-          timeoutRef.current = window.setTimeout(() => {
-            const scan = buildUploadedScan(file);
-            setCompletedScan(scan);
-            onUploadComplete?.(scan);
-          }, 350);
-        }
-
-        return nextProgress;
+    try {
+      // Stage 0: Uploading (0-40%)
+      const scan = await scansAPI.uploadScan(file, activeWorkspaceId, (progressEvent) => {
+        const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+        setProgress(Math.min(40, Math.round(percentCompleted * 0.4)));
       });
-    }, 55);
+
+      // Stage 1: Extracting packets (40-60%)
+      setStageIndex(1);
+      setProgress(50);
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      setProgress(60);
+
+      // Stage 2: YARA signature scan (60-90%)
+      setStageIndex(2);
+      setProgress(75);
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      setProgress(90);
+
+      // Stage 3: VT enrichment (90-100%)
+      setStageIndex(3);
+      setProgress(95);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      setProgress(100);
+
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      setIsRunning(false);
+      setCompletedScan(scan);
+      onUploadComplete?.(scan);
+    } catch (err) {
+      console.error(err);
+      setError(err.response?.data?.detail || 'File upload or analysis failed. Please try again.');
+      setIsRunning(false);
+      setProgress(0);
+      setCurrentFile(null);
+    }
   };
 
   const handleInputChange = (event) => {
@@ -272,6 +135,12 @@ export default function UploadWorkspace({ onUploadComplete }) {
             <Activity className="h-5 w-5" />
           </div>
         </div>
+
+        {error && (
+          <div className="mt-4 rounded-xl border border-rose-500/20 bg-rose-500/10 p-3.5 text-sm text-rose-400">
+            {error}
+          </div>
+        )}
 
         <div
           onDragOver={(event) => {

@@ -23,7 +23,11 @@ function getStatusClasses(status) {
 export default function Dashboard({ scans = [], onOpenScan, title = 'Operational Dashboard' }) {
   const totalThreats = scans.reduce((total, scan) => total + Number(scan.threatCount || 0), 0);
   const systemHealth = 100;
-  const orderedScans = [...scans].sort((left, right) => right.startedAt.localeCompare(left.startedAt));
+  const orderedScans = [...scans].sort((left, right) => {
+    const r = right?.startedAt || '';
+    const l = left?.startedAt || '';
+    return typeof r === 'string' && typeof l === 'string' ? r.localeCompare(l) : 0;
+  });
 
   const metrics = [
     {
